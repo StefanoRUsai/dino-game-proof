@@ -27,9 +27,8 @@ export class GameComponent implements AfterViewInit {
 
   private dinoImg = new Image();
   private cactusImg = new Image();
+  private birdImg = new Image();
   private groundTileImg = new Image();
-
-  private imagesLoaded = 0;
 
   private score = 0;
   private scoreInterval!: ReturnType<typeof setInterval>;
@@ -47,31 +46,17 @@ export class GameComponent implements AfterViewInit {
     this.ctx = canvas.getContext('2d')!;
 
     const imagesToLoad = [
-      { img: new Image(), src: 'assets/dino.png' },
-      { img: new Image(), src: 'assets/cactus.png' },
-      { img: new Image(), src: 'assets/ground.png' },
-      { img: new Image(), src: 'assets/dino.png' },
+      { img: this.dinoImg, src: 'assets/dino.png' },
+      { img: this.cactusImg, src: 'assets/cactus.png' },
+      { img: this.birdImg, src: 'assets/bird.png' },
+      { img: this.groundTileImg, src: 'assets/ground.png' },
     ];
 
     let loaded = 0;
-
-    imagesToLoad.forEach(({ img, src }, index) => {
-      img.onload = () => {
+    imagesToLoad.forEach(({ img, src }) => {
+      img.onload = img.onerror = () => {
         loaded++;
         if (loaded === imagesToLoad.length) {
-          this.dinoImg = imagesToLoad[0].img;
-          this.cactusImg = imagesToLoad[1].img;
-          this.groundTileImg = imagesToLoad[2].img;
-          this.initGame();
-        }
-      };
-      img.onerror = () => {
-        console.error(`Errore caricamento: ${src}`);
-        loaded++;
-        if (loaded === imagesToLoad.length) {
-          this.dinoImg = imagesToLoad[0].img;
-          this.cactusImg = imagesToLoad[1].img;
-          this.groundTileImg = imagesToLoad[2].img;
           this.initGame();
         }
       };
@@ -79,32 +64,11 @@ export class GameComponent implements AfterViewInit {
     });
   }
 
-  private loadImagesAndStartGame() {
-    const checkStart = () => {
-      this.imagesLoaded++;
-      if (this.imagesLoaded >= 3) this.initGame();
-    };
-
-    this.dinoImg.src = 'assets/dino.png';
-    this.cactusImg.src = 'assets/cactus.png';
-    this.groundTileImg.src = 'assets/ground.png';
-
-    this.dinoImg.onload = checkStart;
-    this.dinoImg.onerror = checkStart;
-
-    this.cactusImg.onload = checkStart;
-    this.cactusImg.onerror = checkStart;
-
-    this.groundTileImg.onload = checkStart;
-    this.groundTileImg.onerror = checkStart;
-  }
-
   private initGame() {
     this.engine = Engine.create();
     this.runner = Runner.create();
 
-    this.player = Bodies.rectangle(100, 240, 30, 30, {
-      isStatic: false,
+    this.player = Bodies.rectangle(100, 220, 40, 60, {
       restitution: 0,
       friction: 0,
       label: 'player',
@@ -120,7 +84,10 @@ export class GameComponent implements AfterViewInit {
     Events.on(this.engine, 'collisionStart', (event) => {
       for (const pair of event.pairs) {
         const labels = [pair.bodyA.label, pair.bodyB.label];
-        if (labels.includes('player') && labels.includes('obstacle')) {
+        if (
+          labels.includes('player') &&
+          (labels.includes('cactus') || labels.includes('bird'))
+        ) {
           this.gameOver = true;
         }
       }
@@ -167,7 +134,6 @@ export class GameComponent implements AfterViewInit {
         this.ctx.fillRect(x, 270, tileWidth - 2, 30);
       }
     }
-
     this.groundOffset = (this.groundOffset + this.groundSpeed) % tileWidth;
   }
 
@@ -176,9 +142,14 @@ export class GameComponent implements AfterViewInit {
 
     this.obstacleTimer--;
     if (this.obstacleTimer <= 0) {
-      const obs = Bodies.rectangle(800, 250, 20, 40, {
-        label: 'obstacle',
-        isStatic: true, // ← diventano statici per gestirli noi
+      const isFlying = Math.random() < 0.3;
+      const label = isFlying ? 'bird' : 'cactus';
+      const height = isFlying ? 30 : 40;
+      const yPos = isFlying ? 200 : 250;
+
+      const obs = Bodies.rectangle(800, yPos, 30, height, {
+        label,
+        isStatic: true,
       });
 
       this.obstacles.push(obs);
@@ -191,7 +162,6 @@ export class GameComponent implements AfterViewInit {
 
   private moveObstacles() {
     const speed = -5;
-
     this.obstacles.forEach((obs) => {
       Body.translate(obs, { x: speed, y: 0 });
     });
@@ -202,34 +172,49 @@ export class GameComponent implements AfterViewInit {
     if (this.dinoImg.complete && this.dinoImg.naturalWidth > 0) {
       this.ctx.drawImage(
         this.dinoImg,
-        this.player.position.x - 20,
-        this.player.position.y - 20,
-        40,
-        40
+        this.player.position.x - 25,
+        this.player.position.y - 30,
+        50,
+        60
       );
     } else {
       this.ctx.fillStyle = '#000';
       this.ctx.fillRect(
-        this.player.position.x - 15,
-        this.player.position.y - 15,
-        30,
-        30
+        this.player.position.x - 20,
+        this.player.position.y - 30,
+        40,
+        60
       );
     }
 
-    // Cactus
+    // Obstacles
     this.obstacles.forEach((obs) => {
-      if (this.cactusImg.complete && this.cactusImg.naturalWidth > 0) {
-        this.ctx.drawImage(
-          this.cactusImg,
-          obs.position.x - 10,
-          obs.position.y - 25,
-          30,
-          50
-        );
-      } else {
-        this.ctx.fillStyle = '#a00';
-        this.ctx.fillRect(obs.position.x - 10, obs.position.y - 25, 20, 40);
+      if (obs.label === 'cactus') {
+        if (this.cactusImg.complete && this.cactusImg.naturalWidth > 0) {
+          this.ctx.drawImage(
+            this.cactusImg,
+            obs.position.x - 10,
+            obs.position.y - 25,
+            30,
+            50
+          );
+        } else {
+          this.ctx.fillStyle = '#a00';
+          this.ctx.fillRect(obs.position.x - 10, obs.position.y - 25, 20, 40);
+        }
+      } else if (obs.label === 'bird') {
+        if (this.birdImg.complete && this.birdImg.naturalWidth > 0) {
+          this.ctx.drawImage(
+            this.birdImg,
+            obs.position.x - 15,
+            obs.position.y - 20,
+            40,
+            40
+          );
+        } else {
+          this.ctx.fillStyle = '#00f';
+          this.ctx.fillRect(obs.position.x - 15, obs.position.y - 20, 30, 30);
+        }
       }
     });
   }
@@ -249,8 +234,27 @@ export class GameComponent implements AfterViewInit {
       }
     }
 
+    if (
+      (event.code === 'ArrowDown' || event.code === 'KeyS') &&
+      !this.gameOver
+    ) {
+      Body.scale(this.player, 1, 0.5);
+      this.player.position.y += 15;
+    }
+
     if (event.code === 'Enter' && this.gameOver) {
       location.reload();
+    }
+  }
+
+  @HostListener('window:keyup', ['$event'])
+  handleKeyUp(event: KeyboardEvent) {
+    if (
+      (event.code === 'ArrowDown' || event.code === 'KeyS') &&
+      !this.gameOver
+    ) {
+      Body.scale(this.player, 1, 2);
+      this.player.position.y -= 15;
     }
   }
 }
