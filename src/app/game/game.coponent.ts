@@ -26,9 +26,12 @@ export class GameComponent implements AfterViewInit {
   private obstacleTimer = 0;
 
   private dinoImg = new Image();
+  private dinoDuckImg = new Image();
   private cactusImg = new Image();
   private birdImg = new Image();
   private groundTileImg = new Image();
+  private currentDinoImg = this.dinoImg;
+  private isDucking = false;
 
   private score = 0;
   private scoreInterval!: ReturnType<typeof setInterval>;
@@ -47,6 +50,7 @@ export class GameComponent implements AfterViewInit {
 
     const imagesToLoad = [
       { img: this.dinoImg, src: 'assets/dino.png' },
+      { img: this.dinoDuckImg, src: 'assets/dinoDown.png' },
       { img: this.cactusImg, src: 'assets/cactus.png' },
       { img: this.birdImg, src: 'assets/bird.png' },
       { img: this.groundTileImg, src: 'assets/ground.png' },
@@ -57,6 +61,7 @@ export class GameComponent implements AfterViewInit {
       img.onload = img.onerror = () => {
         loaded++;
         if (loaded === imagesToLoad.length) {
+          this.currentDinoImg = this.dinoImg;
           this.initGame();
         }
       };
@@ -169,21 +174,23 @@ export class GameComponent implements AfterViewInit {
 
   private drawEntities() {
     // Player
-    if (this.dinoImg.complete && this.dinoImg.naturalWidth > 0) {
+    const drawHeight = this.isDucking ? 30 : 60;
+    const drawYOffset = this.isDucking ? 15 : 30;
+    if (this.currentDinoImg.complete && this.currentDinoImg.naturalWidth > 0) {
       this.ctx.drawImage(
-        this.dinoImg,
+        this.currentDinoImg,
         this.player.position.x - 25,
-        this.player.position.y - 30,
+        this.player.position.y - drawYOffset,
         50,
-        60
+        drawHeight
       );
     } else {
       this.ctx.fillStyle = '#000';
       this.ctx.fillRect(
         this.player.position.x - 20,
-        this.player.position.y - 30,
+        this.player.position.y - drawYOffset,
         40,
-        60
+        drawHeight
       );
     }
 
@@ -227,19 +234,34 @@ export class GameComponent implements AfterViewInit {
 
   @HostListener('window:keydown', ['$event'])
   handleInput(event: KeyboardEvent) {
-    if (event.code === 'Space' && !this.gameOver) {
-      const canJump = Math.abs(this.player.velocity.y) < 1;
-      if (canJump) {
-        Body.setVelocity(this.player, { x: 0, y: -10 });
-      }
+    const isGrounded = this.player.position.y >= 220;
+
+    if (
+      event.code === 'Space' &&
+      !this.gameOver &&
+      isGrounded &&
+      !this.isDucking
+    ) {
+      Body.setVelocity(this.player, { x: 0, y: -12 });
     }
 
     if (
       (event.code === 'ArrowDown' || event.code === 'KeyS') &&
-      !this.gameOver
+      !this.gameOver &&
+      !this.isDucking
     ) {
-      Body.scale(this.player, 1, 0.5);
-      this.player.position.y += 15;
+      this.isDucking = true;
+      this.currentDinoImg = this.dinoDuckImg;
+
+      Composite.remove(this.engine.world, this.player);
+
+      this.player = Bodies.rectangle(100, 235, 40, 30, {
+        restitution: 0,
+        friction: 0,
+        label: 'player',
+      });
+
+      Composite.add(this.engine.world, this.player);
     }
 
     if (event.code === 'Enter' && this.gameOver) {
@@ -251,10 +273,18 @@ export class GameComponent implements AfterViewInit {
   handleKeyUp(event: KeyboardEvent) {
     if (
       (event.code === 'ArrowDown' || event.code === 'KeyS') &&
-      !this.gameOver
+      this.isDucking
     ) {
-      Body.scale(this.player, 1, 2);
-      this.player.position.y -= 15;
+      this.isDucking = false;
+      this.currentDinoImg = this.dinoImg;
+      Composite.remove(this.engine.world, this.player);
+      this.player = Bodies.rectangle(100, 220, 40, 60, {
+        restitution: 0,
+        friction: 0,
+        label: 'player',
+      });
+
+      Composite.add(this.engine.world, this.player);
     }
   }
 }
