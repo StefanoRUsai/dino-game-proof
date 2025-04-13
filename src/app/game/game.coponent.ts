@@ -41,6 +41,8 @@ export class GameComponent implements AfterViewInit {
   private canvasHeight = 300;
   private groundOffset = 0;
   private groundSpeed = 5;
+  private baseSpeed = -5;
+  private currentSpeed = 5;
 
   ngAfterViewInit(): void {
     if (typeof window === 'undefined') return;
@@ -139,18 +141,25 @@ export class GameComponent implements AfterViewInit {
         this.ctx.fillRect(x, 270, tileWidth - 2, 30);
       }
     }
-    this.groundOffset = (this.groundOffset + this.groundSpeed) % tileWidth;
+    this.groundOffset = (this.groundOffset + this.currentSpeed) % tileWidth;
   }
 
   private spawnObstaclesLogic() {
     if (this.gameOver) return;
 
     this.obstacleTimer--;
+
     if (this.obstacleTimer <= 0) {
       const isFlying = Math.random() < 0.3;
       const label = isFlying ? 'bird' : 'cactus';
       const height = isFlying ? 30 : 40;
-      const yPos = isFlying ? 200 : 250;
+
+      let yPos: number;
+      if (label === 'bird') {
+        yPos = Math.random() < 0.5 ? 200 : 240;
+      } else {
+        yPos = 250;
+      }
 
       const obs = Bodies.rectangle(800, yPos, 30, height, {
         label,
@@ -159,14 +168,21 @@ export class GameComponent implements AfterViewInit {
 
       this.obstacles.push(obs);
       Composite.add(this.engine.world, obs);
-      this.obstacleTimer = 80 + Math.floor(Math.random() * 60);
+
+      const baseDelay = 80;
+      const difficultyFactor = Math.floor(this.score / 200);
+      this.obstacleTimer =
+        baseDelay + Math.floor(Math.random() * 60) - difficultyFactor * 5;
+      this.obstacleTimer = Math.max(this.obstacleTimer, 30);
     }
 
     this.obstacles = this.obstacles.filter((o) => o.position.x > -50);
   }
 
   private moveObstacles() {
-    const speed = -5;
+    this.currentSpeed = 5 + this.score / 200;
+    const speed = -this.currentSpeed;
+
     this.obstacles.forEach((obs) => {
       Body.translate(obs, { x: speed, y: 0 });
     });
