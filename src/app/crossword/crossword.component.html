@@ -1,0 +1,35 @@
+<div class="grid" [style.gridTemplateColumns]="'repeat(' + size + ', 40px)'">
+  <div
+    *ngFor="let row of grid; let rowIndex = index"
+    class="row"
+    [style.display]="'contents'"
+  >
+    <div
+      *ngFor="let cell of row"
+      class="cell"
+      [ngClass]="{ black: cell.isBlack }"
+    >
+      <span *ngIf="cell.clueNumber" class="number">{{ cell.clueNumber }}</span>
+      <input *ngIf="!cell.isBlack" [(ngModel)]="cell.value" maxlength="1" />
+    </div>
+  </div>
+</div>
+
+<div class="clues">
+  <h3>Indizi</h3>
+  <ul>
+    <li *ngFor="let clue of clues">
+      <strong
+        >{{ clue.number }}
+        {{ clue.direction === "across" ? "Orizzontale" : "Verticale" }}:</strong
+      >
+      {{ clue.text }}
+    </li>
+  </ul>
+</div>
+
+<button (click)="checkSolution() ? alert('Giusto!') : alert('Sbagliato!')">
+  Verifica
+</button>
+<button (click)="revealSolution()">Mostra Soluzioni</button>
+<p>Parole piazzate: {{ getPlacedWordsCount() }}</p>
